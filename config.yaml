@@ -1,0 +1,21 @@
+on_safety_timeout: flag
+
+# Per-guard timeout in seconds. Increase if Ollama is slow (e.g. 90).
+guard_timeout_seconds: 60
+
+groq:
+  model: "llama-3.3-70b-versatile"
+
+guards:
+  safety:
+    enabled: true
+    model: "phi3"
+  topic:
+    enabled: true
+    model: "llama3.2"
+  format:
+    enabled: false
+    model: "phi3"
+  pii:
+    enabled: false
+    model: "phi3"

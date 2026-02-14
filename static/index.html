@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guardrails Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #18181c;
+      --border: #2a2a30;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --accent: #a78bfa;
+      --accent-dim: #7c3aed;
+      --pass: #22c55e;
+      --flag: #eab308;
+      --block: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+    .container {
+      width: 100%;
+      max-width: 42rem;
+      height: 90vh;
+      max-height: 700px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    header {
+      flex-shrink: 0;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0; letter-spacing: -0.02em; }
+    .subtitle { color: var(--text-muted); font-size: 0.8rem; margin: 0.25rem 0 0 0; }
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .chat-area.empty { justify-content: center; align-items: center; color: var(--text-muted); font-size: 0.9rem; }
+    .bubble {
+      max-width: 92%;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bubble.user {
+      align-self: flex-end;
+      background: var(--accent-dim);
+      color: white;
+    }
+    .bubble.assistant {
+      align-self: flex-start;
+      background: var(--border);
+      color: var(--text);
+    }
+    .bubble.assistant.blocked { border-left: 3px solid var(--block); }
+    .guard-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.5rem;
+    }
+    .guard-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .guard-badge.pass { background: rgba(34, 197, 94, 0.2); color: var(--pass); }
+    .guard-badge.flag { background: rgba(234, 179, 8, 0.2); color: var(--flag); }
+    .guard-badge.block { background: rgba(239, 68, 68, 0.2); color: var(--block); }
+    .guard-badge .reason { color: var(--text-muted); font-weight: 400; margin-left: 0.2rem; }
+    .llm-flow {
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .llm-flow .flow-label { font-weight: 500; color: var(--text); margin-right: 0.35rem; }
+    .llm-flow .primary-model { font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+    .llm-flow .guardrails-line { margin-top: 0.35rem; }
+    .llm-flow .guard-row { margin-top: 0.25rem; }
+    .input-row {
+      flex-shrink: 0;
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+    #message {
+      flex: 1;
+      min-height: 2.5rem;
+      max-height: 120px;
+      padding: 0.6rem 0.9rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      resize: none;
+    }
+    #message::placeholder { color: var(--text-muted); }
+    #message:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
+    }
+    button {
+      padding: 0 1rem;
+      height: 2.5rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: white;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-dim); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error {
+      color: var(--block);
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .loading-dots::after {
+      content: '';
+      animation: dots 1s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
+    .status-bar {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <h1>Guardrails Chat</h1>
+        <p class="subtitle">Groq + local SLM guardrails (phi3, llama3.2)</p>
+      </div>
+      <button id="clear-chat" type="button" style="height:2rem;padding:0 0.75rem;font-size:0.8rem;">Clear chat</button>
+    </header>
+    <div id="chat-area" class="chat-area empty">Send a message to start.</div>
+    <div class="input-row">
+      <textarea id="message" rows="1" placeholder="Ask a question..." autofocus></textarea>
+      <button id="send" type="button">Send</button>
+    </div>
+    <label class="skip-guards" style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--text-muted);cursor:pointer;">
+      <input type="checkbox" id="skip-guards" />
+      <span>Skip guards (faster — Groq only, no Ollama)</span>
+    </label>
+    <div id="error" class="error" style="display: none;"></div>
+    <div id="status" class="status-bar"></div>
+  </div>
+  <script>
+    (function () {
+      const SESSION_KEY = 'guardrails_session_id';
+      const HISTORY_KEY = 'guardrails_history';
+
+      const chatArea = document.getElementById('chat-area');
+      const messageInput = document.getElementById('message');
+      const sendBtn = document.getElementById('send');
+      const errorEl = document.getElementById('error');
+      const statusEl = document.getElementById('status');
+
+      let sessionId = localStorage.getItem(SESSION_KEY);
+      if (!sessionId) {
+        sessionId = 's-' + Math.random().toString(36).slice(2) + '-' + Date.now();
+        localStorage.setItem(SESSION_KEY, sessionId);
+      }
+
+      let history = [];
+      try {
+        const saved = localStorage.getItem(HISTORY_KEY);
+        if (saved) history = JSON.parse(saved);
+      } catch (_) {}
+
+      function saveHistory() {
+        try {
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        } catch (_) {}
+      }
+
+      function escapeHtml(s) {
+        if (s == null || s === undefined) return '';
+        try { s = String(s); } catch (_) { return ''; }
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+      }
+
+      function safeStr(x) {
+        if (x == null || x === undefined) return '';
+        try { return String(x); } catch (_) { return ''; }
+      }
+
+      var GUARD_REASON_MAX = 80;
+
+      function guardBadgesHtml(guardResults) {
+        if (!guardResults || !Array.isArray(guardResults) || guardResults.length === 0) return '';
+        return guardResults.map(function (g) {
+          if (!g || typeof g !== 'object') return '';
+          var name = safeStr(g.name) || 'guard';
+          var model = safeStr(g.model);
+          var verdict = safeStr(g.verdict) || 'flag';
+          var label = model ? escapeHtml(name) + ' <span class="reason">(' + escapeHtml(model) + ')</span>' : escapeHtml(name);
+          var fullReason = safeStr(g.reason);
+          var showReason = fullReason.length > GUARD_REASON_MAX ? fullReason.slice(0, GUARD_REASON_MAX) + '\u2026' : fullReason;
+          var reasonHtml = showReason ? ' <span class="reason" title="' + escapeHtml(fullReason).replace(/"/g, '&quot;') + '">' + escapeHtml(showReason) + '</span>' : '';
+          return '<span class="guard-badge ' + escapeHtml(verdict) + '">' + label + ': ' + escapeHtml(verdict) + reasonHtml + '</span>';
+        }).join('');
+      }
+
+      function llmFlowHtml(primaryModel, guardResults) {
+        var hasPrimary = primaryModel != null && String(primaryModel).trim() !== '';
+        var hasGuards = guardResults && Array.isArray(guardResults) && guardResults.length > 0;
+        if (!hasPrimary && !hasGuards) return '';
+        var parts = [];
+        if (hasPrimary) {
+          parts.push('<div><span class="flow-label">Response by:</span><span class="primary-model">' + escapeHtml(String(primaryModel).trim()) + '</span> <span class="reason">(Groq)</span></div>');
+        }
+        if (hasGuards) {
+          parts.push('<div class="guardrails-line"><span class="flow-label">Guardrails:</span><div class="guard-row">' + guardBadgesHtml(guardResults) + '</div></div>');
+        }
+        return '<div class="llm-flow">' + parts.join('') + '</div>';
+      }
+
+      function appendExchange(userMsg, assistantMsg, guardResults, blocked, primaryModel) {
+        chatArea.classList.remove('empty');
+        var userBubble = document.createElement('div');
+        userBubble.className = 'bubble user';
+        userBubble.textContent = userMsg != null ? String(userMsg) : '';
+        chatArea.appendChild(userBubble);
+        var assistantWrap = document.createElement('div');
+        var msgText = assistantMsg != null ? String(assistantMsg) : '';
+        assistantWrap.innerHTML = '<div class="bubble assistant' + (blocked ? ' blocked' : '') + '">' + escapeHtml(msgText) + '</div>';
+        var flowHtml = llmFlowHtml(primaryModel, guardResults);
+        if (flowHtml) assistantWrap.innerHTML += flowHtml;
+        else if (guardResults && Array.isArray(guardResults) && guardResults.length > 0) {
+          assistantWrap.innerHTML += '<div class="guard-row">' + guardBadgesHtml(guardResults) + '</div>';
+        }
+        chatArea.appendChild(assistantWrap);
+        chatArea.scrollTop = chatArea.scrollHeight;
+      }
+
+      function setLoading(loading) {
+        sendBtn.disabled = loading;
+        if (loading) {
+          const el = document.createElement('div');
+          el.className = 'bubble assistant loading-dots';
+          el.textContent = 'Thinking';
+          chatArea.appendChild(el);
+          chatArea.scrollTop = chatArea.scrollHeight;
+        }
+      }
+
+      function removeLoading() {
+        const loading = chatArea.querySelector('.loading-dots');
+        if (loading) loading.remove();
+      }
+
+      function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.style.display = 'block';
+      }
+      function clearError() {
+        errorEl.textContent = '';
+        errorEl.style.display = 'none';
+      }
+
+      function buildHistoryForApi() {
+        return history.map(function (h) { return { role: h.role, content: h.content }; });
+      }
+
+      sendBtn.addEventListener('click', sendMessage);
+      messageInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      const REQUEST_TIMEOUT_MS = 180000; // 3 minutes (Ollama guards can be slow)
+
+      function sendMessage() {
+        const message = messageInput.value.trim();
+        if (!message) return;
+        clearError();
+        setLoading(true);
+        const skipGuards = document.getElementById('skip-guards').checked;
+        const body = {
+          message: message,
+          session_id: sessionId,
+          history: buildHistoryForApi(),
+          skip_guards: skipGuards
+        };
+        const controller = new AbortController();
+        const timeoutId = setTimeout(function () {
+          controller.abort();
+        }, REQUEST_TIMEOUT_MS);
+        fetch(window.location.origin + '/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        })
+          .then(function (res) {
+            return res.text().then(function (text) {
+              var data;
+              try { data = text ? JSON.parse(text) : {}; } catch (_) { data = {}; }
+              if (!res.ok) throw new Error(data.detail || text || res.statusText);
+              return data;
+            });
+          })
+          .then(function (data) {
+            if (!data || typeof data !== 'object') data = {};
+            var responseText = data.response != null ? String(data.response) : '';
+            var guards = Array.isArray(data.guard_results) ? data.guard_results : [];
+            var isBlocked = Boolean(data.blocked);
+            var primaryModel = data.primary_model != null ? String(data.primary_model) : '';
+            appendExchange(message, responseText, guards, isBlocked, primaryModel);
+            history.push({ role: 'user', content: message });
+            history.push({ role: 'assistant', content: responseText });
+            saveHistory();
+            if (data.session_id != null && data.session_id !== '') {
+              try { sessionId = String(data.session_id); localStorage.setItem(SESSION_KEY, sessionId); } catch (_) {}
+            }
+            messageInput.value = '';
+          })
+          .catch(function (err) {
+            var msg = err.message || 'Request failed';
+            if (err.name === 'AbortError') {
+              msg = 'Request timed out (3 min). Ollama guards are likely slow — try "Skip guards" for a quick reply, or disable some guards in config.yaml.';
+            }
+            showError(msg);
+          })
+          .finally(function () {
+            clearTimeout(timeoutId);
+            removeLoading();
+          });
+      }
+
+      // Restore UI from history
+      if (history.length) {
+        for (var i = 0; i < history.length; i += 2) {
+          var u = history[i], a = history[i + 1];
+          if (u && u.role === 'user' && a && a.role === 'assistant') {
+            appendExchange(safeStr(u.content), safeStr(a.content), null, false, '');
+          }
+        }
+      }
+
+      document.getElementById('clear-chat').addEventListener('click', function () {
+        history = [];
+        saveHistory();
+        chatArea.innerHTML = 'Send a message to start.';
+        chatArea.classList.add('empty');
+        clearError();
+      });
+
+      // Health status
+      fetch(window.location.origin + '/health')
+        .then(function (r) { return r.json(); })
+        .then(function (h) {
+          var s = 'Groq: ' + (h.groq_configured ? 'OK' : 'Missing key') + ' | Ollama: ' + (h.ollama_available ? 'OK' : 'Not running');
+          if (h.groq_model) s += ' | Model: ' + h.groq_model;
+          statusEl.textContent = s;
+        })
+        .catch(function () { statusEl.textContent = 'Health check failed'; });
+    })();
+  </script>
+</body>
+</html>
