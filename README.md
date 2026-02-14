@@ -22,9 +22,17 @@ A chat app that uses a **cloud model (Groq)** to answer you and **small models o
 
 <img width="412" height="185" alt="image" src="https://github.com/user-attachments/assets/76676e44-240b-45b8-886f-609aee3aaeec" />
 
+
+
 <img width="409" height="371" alt="image" src="https://github.com/user-attachments/assets/d09a7ce0-064b-44c7-9da2-98f4ab79e792" />
 
+
+
+
 <img width="383" height="169" alt="image" src="https://github.com/user-attachments/assets/f653db41-d481-491e-bb48-34259423195d" />
+
+
+
 
 <img width="363" height="203" alt="image" src="https://github.com/user-attachments/assets/bb58bcdf-858a-4cfb-8b58-7bdfc22e4495" />
 
