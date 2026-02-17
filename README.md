@@ -3,7 +3,7 @@
 A chat app that uses a **cloud model (Groq)** to answer you and **small models on your PC (Ollama)** to check each answer for safety and relevance before showing it. You see who generated the reply and which guards ran, so the flow is transparent.
 
 ---
-
+ 
 ## Objective
 
 - **Answer questions** using a strong model (Groq).
