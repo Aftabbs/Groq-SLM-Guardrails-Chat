@@ -4,7 +4,7 @@ A chat app that uses a **cloud model (Groq)** to answer you and **small models o
  
 --- 
   
-## Objective
+## Objective 
 
 - **Answer questions** using a strong model (Groq).
 - **Check every answer** locally with small models (safety, topic, optional format/PII) so nothing goes out without a basic review.
